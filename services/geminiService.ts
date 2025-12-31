@@ -1,83 +1,27 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import { Subject, AgentType } from "../types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// Vite đọc biến môi trường từ VITE_...
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
-
-// CẤU HÌNH MODEL
-const MODEL_CONFIG = {
-  TEXT: 'gemini-1.5-flash', // Hiện tại dùng 1.5 ổn định nhất, 2.0 nếu bạn đã có quyền truy cập
-  TTS: 'gemini-1.5-flash',
-};
-
-const cache = new Map<string, string>();
-const audioCache = new Map<string, string>();
-
-const getCacheKey = (subject: string, agent: string, input: string, imageHash: string = '') => 
-  `${subject}|${agent}|${input.trim()}|${imageHash}`;
-
-const SYSTEM_PROMPTS: Record<AgentType, string> = {
-  [AgentType.SPEED]: `Bạn là chuyên gia giải đề thi. Trả về JSON: {"finalAnswer": "...", "casioSteps": "..."}.`,
-  [AgentType.SOCRATIC]: `Bạn là giáo sư Socratic. Giải chi tiết, ngắn gọn, dùng LaTeX.`,
-  [AgentType.PERPLEXITY]: `Bạn là Perplexity AI. Liệt kê tối đa 2 dạng bài nâng cao.`,
-};
-
-async function safeExecute<T>(fn: () => Promise<T>): Promise<T> {
+export const processTask = async (subject: string, agent: string, input: string, image?: string) => {
   try {
-    return await fn();
-  } catch (error: any) {
-    console.error("Gemini Service Error:", error);
-    throw new Error(error.toString().includes('429') ? "Hệ thống quá tải!" : error.message);
-  }
-}
-
-export const processTask = async (subject: Subject, agent: AgentType, input: string, image?: string) => {
-  const cacheKey = getCacheKey(subject, agent, input, image ? 'has_img' : 'no_img');
-  if (cache.has(cacheKey)) return cache.get(cacheKey)!;
-
-  return safeExecute(async () => {
-    const model = genAI.getGenerativeModel({ 
-        model: MODEL_CONFIG.TEXT,
-        // Cấu hình JSON Mode nếu là Agent SPEED
-        generationConfig: agent === AgentType.SPEED ? {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: SchemaType.OBJECT,
-                properties: {
-                    finalAnswer: { type: SchemaType.STRING },
-                    casioSteps: { type: SchemaType.STRING }
-                },
-                required: ["finalAnswer", "casioSteps"]
-            }
-        } : undefined
-    });
-
-    const prompt = `Môn: ${subject}. Chuyên gia: ${agent}. Yêu cầu: ${SYSTEM_PROMPTS[agent]}. \nNội dung: ${input}`;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Môn: ${subject}. Vai trò: ${agent}. Nội dung: ${input}`;
     
-    let result;
     if (image) {
-      const imageData = image.split(',')[1];
-      result = await model.generateContent([
+      const base64Data = image.split(",")[1];
+      const result = await model.generateContent([
         prompt,
-        { inlineData: { mimeType: "image/jpeg", data: imageData } }
+        { inlineData: { mimeType: "image/jpeg", data: base64Data } }
       ]);
-    } else {
-      result = await model.generateContent(prompt);
+      return result.response.text();
     }
-
-    const resultText = result.response.text();
-    if (resultText) cache.set(cacheKey, resultText);
-    return resultText;
-  });
-};
-
-// --- CÁC HÀM KHÁC (Tóm tắt, Quiz) CŨNG PHẢI DÙNG CHUNG CẤU TRÚC model.generateContent ---
-
-export const generateSummary = async (content: string) => {
-    if (!content) return "";
-    return safeExecute(async () => {
-        const model = genAI.getGenerativeModel({ model: MODEL_CONFIG.TEXT });
-        const result = await model.generateContent(`Tóm tắt cực ngắn gọn 1 câu: ${content}`);
-        return result.response.text();
-    });
+    
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Lỗi AI:", error);
+    return "Có lỗi xảy ra khi gọi AI.";
+  }
 };
