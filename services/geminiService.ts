@@ -1,26 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Cloudflare/Vite dùng import.meta.env
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(apiKey);
+// 1. Dùng VITE_ để Cloudflare nhận diện được Key
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+
+// 2. Tên Class ĐÚNG là GoogleGenerativeAI (Không phải GoogleGenAI)
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const processTask = async (subject: string, agent: string, input: string, image?: string) => {
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
-    });
-
-    const prompt = `Bạn là giáo viên chuyên nghiệp. Trả về JSON chính xác cấu trúc này: 
-    { 
-      "speed": { 
-        "answer": "đáp án chi tiết dùng LaTeX cho công thức", 
-        "similar": { "question": "câu hỏi tương tự", "options": ["A", "B", "C", "D"], "correctIndex": 0 } 
-      }, 
-      "socratic_hint": "gợi ý dẫn dắt", 
-      "core_concept": "khái niệm cốt lõi" 
-    }. 
-    Môn ${subject}, chuyên gia ${agent}: ${input}`;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    // Tạo prompt dựa trên logic JSON bạn muốn
+    const prompt = `Bạn là giáo viên môn ${subject}. Chuyên gia ${agent}. 
+    Hãy giải quyết: ${input}
+    Trả về định dạng JSON: { "finalAnswer": "lời giải", "casioSteps": "hướng dẫn máy tính" }`;
 
     const parts: any[] = [{ text: prompt }];
     if (image) {
@@ -33,15 +26,15 @@ export const processTask = async (subject: string, agent: string, input: string,
     }
 
     const result = await model.generateContent(parts);
-    return result.response.text(); // Trả về chuỗi JSON
+    return result.response.text();
   } catch (error) {
-    console.error("Lỗi:", error);
-    return JSON.stringify({ error: "Không thể kết nối AI" });
+    console.error("Lỗi Gemini:", error);
+    return JSON.stringify({ finalAnswer: "Lỗi kết nối AI.", casioSteps: "" });
   }
 };
 
-// Giữ các hàm trống để App.tsx không bị lỗi crash
-export const generateSimilarQuiz = async (c: any) => null;
-export const generateSummary = async (c: any) => null;
-export const fetchTTSAudio = async (c: any) => null;
-export const playStoredAudio = async (a: any, b: any) => {};
+// Các hàm phụ để App.tsx không bị lỗi import
+export const generateSimilarQuiz = async (content: string) => null;
+export const generateSummary = async (content: string) => null;
+export const fetchTTSAudio = async (text: string) => null;
+export const playStoredAudio = async (aud: string, ref: any) => {};
