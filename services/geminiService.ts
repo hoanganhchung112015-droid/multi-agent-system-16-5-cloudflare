@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Subject, AgentType } from "../types";
 import React from 'react';
 
