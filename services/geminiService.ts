@@ -1,9 +1,8 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Subject, AgentType } from "../types";
 
-// Lấy API Key từ biến môi trường của Vite
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
 
 // CẤU HÌNH MODEL
 const MODEL_CONFIG = {
