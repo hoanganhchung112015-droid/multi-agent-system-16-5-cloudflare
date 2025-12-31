@@ -1,54 +1,47 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. Khởi tạo chuẩn (Không dùng GoogleGenAI)
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+// Cloudflare/Vite dùng import.meta.env
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// 2. Cấu hình Model
-const MODEL_NAME = "gemini-1.5-flash";
-
-// 3. Hàm xử lý chính (khớp với App.tsx)
 export const processTask = async (subject: string, agent: string, input: string, image?: string) => {
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-  
-  // Prompt nội dung
-  let prompt = `Môn: ${subject}. Chuyên gia: ${agent}. Nội dung: ${input}`;
-  
-  // Nếu là chuyên gia SPEED, yêu cầu JSON (App.tsx cần JSON.parse)
-  if (agent === "SPEED") {
-    prompt += `\nTrả về JSON: {"finalAnswer": "đáp án và giải thích ngắn", "casioSteps": "các bước bấm máy"}`;
-  }
-
-  const parts: any[] = [{ text: prompt }];
-  if (image) {
-    const base64Data = image.split(",")[1];
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Data } });
-  }
-
-  const result = await model.generateContent(parts);
-  return result.response.text();
-};
-
-// 4. Các hàm bổ trợ (để App.tsx không bị lỗi import)
-export const generateSimilarQuiz = async (content: string) => {
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    const result = await model.generateContent(`Tạo 1 câu hỏi trắc nghiệm tương tự: ${content}. Trả về JSON {question, options, answer}`);
-    return JSON.parse(result.response.text());
-  } catch (e) { return null; }
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const prompt = `Bạn là giáo viên chuyên nghiệp. Trả về JSON chính xác cấu trúc này: 
+    { 
+      "speed": { 
+        "answer": "đáp án chi tiết dùng LaTeX cho công thức", 
+        "similar": { "question": "câu hỏi tương tự", "options": ["A", "B", "C", "D"], "correctIndex": 0 } 
+      }, 
+      "socratic_hint": "gợi ý dẫn dắt", 
+      "core_concept": "khái niệm cốt lõi" 
+    }. 
+    Môn ${subject}, chuyên gia ${agent}: ${input}`;
+
+    const parts: any[] = [{ text: prompt }];
+    if (image) {
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: image.includes(",") ? image.split(",")[1] : image
+        }
+      });
+    }
+
+    const result = await model.generateContent(parts);
+    return result.response.text(); // Trả về chuỗi JSON
+  } catch (error) {
+    console.error("Lỗi:", error);
+    return JSON.stringify({ error: "Không thể kết nối AI" });
+  }
 };
 
-export const generateSummary = async (content: string) => {
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-  const result = await model.generateContent(`Tóm tắt 1 câu ngắn: ${content}`);
-  return result.response.text();
-};
-
-export const fetchTTSAudio = async (text: string) => {
-  // Tạm thời trả về null nếu bạn chưa có server TTS riêng để tránh lỗi app
-  return null; 
-};
-
-export const playStoredAudio = async (base64: string, ref: any) => {
-  console.log("TTS đang được bảo trì");
-};
+// Giữ các hàm trống để App.tsx không bị lỗi crash
+export const generateSimilarQuiz = async (c: any) => null;
+export const generateSummary = async (c: any) => null;
+export const fetchTTSAudio = async (c: any) => null;
+export const playStoredAudio = async (a: any, b: any) => {};
