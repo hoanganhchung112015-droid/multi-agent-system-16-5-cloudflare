@@ -1,4 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Khi khởi tạo, dùng đúng tên class:
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
 import { Subject, AgentType } from "../types";
 import React from 'react';
 
